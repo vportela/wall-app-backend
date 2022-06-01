@@ -2,12 +2,20 @@ import express, { Request , Response } from "express";
 import cors from "cors";
 
 const app = express()
-// app.use( express.json() )
+app.use( express.json() )
 
 type WallPost = {
     id: number,
     user: string,
-    text: string,
+    text: string
+}
+
+type User = { 
+    id: number,
+    firstName: string,
+    lastName: string,
+    userName: string,
+    email: string
 }
 
 const newMessageArray: WallPost[] = [
@@ -21,6 +29,17 @@ const newMessageArray: WallPost[] = [
         user: "newUser2",
         text: "testing new text"
     },    
+]
+
+const newUserArray: User[] = [
+    { 
+        id: 1,
+        firstName: "victo",
+        lastName: "porto",
+        userName: "vicport",
+        email: "vicport@gmail.com"
+    },
+
 ]
 
 app.use(cors({
@@ -59,7 +78,23 @@ app.get("/posts", (request: Request, response: Response<WallPost[]>) => {
    
 })
 
-//
+//-----------Registration--------
+
+app.post("/registration", (request: Request<User>, response: Response<User>) => { 
+    console.log("hello from the registration directory with request body", 
+    request.body)
+
+    newUserArray.push(request.body)
+    response.send(request.body)
+})
+
+app.get("/registration", (request: Request, response: Response<User[]>) => { 
+    console.log("fetching new user")
+
+    response.send(newUserArray)
+
+})
+
 
 
 
