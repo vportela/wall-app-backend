@@ -18,6 +18,11 @@ type User = {
     email: string
 }
 
+ type Login = { 
+    userName: string,
+    password: string
+ }
+
 const wallPosts: WallPost[] = [
     { 
         id: 1,
@@ -59,6 +64,16 @@ app.get("/", (request: Request, response: Response) => {
         email: "tom@gmail.com"
     }
     response.send(user)
+})
+
+app.post("/login", (request: Request<Login>, response: Response<Login>) => { 
+    console.log("hello from the .login directory with request", request.body)
+ 
+
+    users.find(request.body) //api MUST have a return (this is not a return, it just updates array)
+    // console.log("request.body", request.body )
+    response.send(request.body)  //this is the actual return. 
+
 })
 
 app.post("/posts", (request: Request<WallPost>, response: Response<WallPost>) => { 
