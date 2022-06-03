@@ -2,7 +2,7 @@ import express, { Request , Response } from "express";
 import cors from "cors";
 
 const app = express()
-app.use( express.json() )
+app.use( express.json() ) //this is parsing the request body into json
 
 type WallPost = {
     id: number,
@@ -18,7 +18,7 @@ type User = {
     email: string
 }
 
-const newMessageArray: WallPost[] = [
+const wallPosts: WallPost[] = [
     { 
         id: 1,
         user: "newUser",
@@ -31,7 +31,7 @@ const newMessageArray: WallPost[] = [
     },    
 ]
 
-const newUserArray: User[] = [
+const users: User[] = [
     { 
         id: 1,
         firstName: "victo",
@@ -41,6 +41,11 @@ const newUserArray: User[] = [
     },
 
 ]
+//make a post call to log the user in, use .find to parse through array of users
+//and match the user to a user in the array.
+//if that is successful, response.send that it was successful 
+//take user to homepage
+//if unsuccessful, err "cannot find username or password"
 
 app.use(cors({
     origin: "http://localhost:3000"
@@ -57,7 +62,7 @@ app.get("/", (request: Request, response: Response) => {
 })
 
 app.post("/posts", (request: Request<WallPost>, response: Response<WallPost>) => { 
-    console.log("hello from the .post directory with request body", request.body)
+    console.log("hello from the .post directory with request", request.body)
   //console.logs for backend show up in terminal, not browser
     // const id = request.body.id;
     // const user = request.body.user;
@@ -65,17 +70,16 @@ app.post("/posts", (request: Request<WallPost>, response: Response<WallPost>) =>
     // console.log("id", id)
     // console.log("user", user)
     // console.log("text", text)
-    newMessageArray.push(request.body) //api MUST have a return (this is not a return, it just updates array)
+    wallPosts.push(request.body) //api MUST have a return (this is not a return, it just updates array)
+    console.log("request.body", request.body )
     response.send(request.body)  //this is the actual return. 
 
 })
 
 app.get("/posts", (request: Request, response: Response<WallPost[]>) => { 
     console.log("fetching posts")
-    
-    response.send(newMessageArray)
-    // response.send("i'm a little teapot")
-   
+    // console.log("newMessageArray", newMessageArray)    
+    response.send(wallPosts)
 })
 
 //-----------Registration--------
@@ -84,14 +88,14 @@ app.post("/registration", (request: Request<User>, response: Response<User>) => 
     console.log("hello from the registration directory with request body", 
     request.body)
 
-    newUserArray.push(request.body)
+    users.push(request.body)
     response.send(request.body)
 })
 
 app.get("/registration", (request: Request, response: Response<User[]>) => { 
     console.log("fetching new user")
 
-    response.send(newUserArray)
+    response.send(users)
 
 })
 
@@ -112,3 +116,14 @@ app.listen(5000, () => {
 //on success response, redirect to login page, and then there can be a new user success message
 //if unsuccessful, it will stay on the page with an error message
 //usehistory/uselocation from react router
+
+// work on login
+//when user inputs their info, it will be 
+
+
+//take in password on registration, pw should not be readable to user
+
+//,mini stretch goal, if successful, show success message that takes you to login page
+//on login page can say "user successfully created, please login!" and then let ppl login
+
+
