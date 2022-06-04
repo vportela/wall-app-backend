@@ -1,22 +1,32 @@
 import express, { Request , Response } from "express";
 import cors from "cors";
+import { users, wallPosts } from "./wallDataBase";
 
 const app = express()
 app.use( express.json() ) //this is parsing the request body into json
 
-type WallPost = {
+export type WallPost = {
     id: number,
     user: string,
     text: string
 }
 
-type User = { 
+export type User = { 
     id: string,
     firstName: string,
     lastName: string,
     userName: string,
     email: string,
     password: string,
+    loggedIn: boolean
+}
+
+type SafeUser = { 
+    id: string,
+    firstName: string,
+    lastName: string,
+    userName: string,
+    email: string,
     loggedIn: boolean
 }
 
@@ -32,31 +42,7 @@ type UserRequestBody = {
     password: string,
 }
 
-const wallPosts: WallPost[] = [
-    { 
-        id: 1,
-        user: "newUser",
-        text: "this is text"
-    },
-    { 
-        id: 2,
-        user: "newUser2",
-        text: "testing new text"
-    },    
-]
 
-const users: User[] = [
-    { 
-        id: "1",
-        firstName: "victo",
-        lastName: "porto",
-        userName: "vicport",
-        email: "vicport@gmail.com",
-        password: "password",
-        loggedIn: false
-    },
-
-]
 //make a post call to log the user in, use .find to parse through array of users
 //and match the user to a user in the array.
 //if that is successful, response.send that it was successful 
@@ -134,11 +120,7 @@ app.get("/users", (request: Request, response: Response<User[]>) => {
 
 //-------------Login----------
 
-app.get("/login", (request: Request, response: Response<User[]>) => { 
-
-})
-
-app.post("/login", (request: Request<Login>, response: Response<string>) => { 
+app.post("/login", (request: Request<Login>, response: Response<SafeUser | string>) => { 
     console.log("hello from the .login directory with request", request.body)
     // console.log("this is the response", response)
     const userMatched = users.find((user) => 
@@ -147,7 +129,16 @@ app.post("/login", (request: Request<Login>, response: Response<string>) => {
     ) 
     console.log("userMatched", userMatched)
     if (userMatched !== undefined) { 
-       return response.send(userMatched.id)
+        const safeUser: SafeUser = { 
+            id: userMatched.id,
+            firstName: userMatched.firstName,
+            lastName: userMatched.lastName,
+            userName: userMatched.userName,
+            email: userMatched.email,
+            loggedIn: true
+        }
+
+       return response.send(safeUser)
     } else { 
         response.status(400)
         return response.send("Cannot find that username or password, please try again.")
