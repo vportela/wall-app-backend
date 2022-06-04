@@ -11,12 +11,13 @@ type WallPost = {
 }
 
 type User = { 
-    id: number,
+    id: string,
     firstName: string,
     lastName: string,
     userName: string,
     email: string,
-    password: string
+    password: string,
+    loggedIn: boolean
 }
 
  type Login = { 
@@ -39,12 +40,13 @@ const wallPosts: WallPost[] = [
 
 const users: User[] = [
     { 
-        id: 1,
+        id: "1",
         firstName: "victo",
         lastName: "porto",
         userName: "vicport",
         email: "vicport@gmail.com",
-        password: "password"
+        password: "password",
+        loggedIn: false
     },
 
 ]
@@ -115,22 +117,31 @@ app.get("/login", (request: Request, response: Response<User[]>) => {
 
 })
 
-app.post("/login", (request: Request<Login>, response: Response<Login>) => { 
+app.post("/login", (request: Request<Login>, response: Response<string>) => { 
     console.log("hello from the .login directory with request", request.body)
- 
-console.log("this is the response", response)
-    let userMatch = users.find((user) => { 
-        if (user.userName  === request.body.userName && user.password === request.body.password ){ 
-            console.log("USER MATCH FOUND") //how to pull just the fields? 
-        } else {
-            return console.log("USER NOT FOUND", "request.body.userName", request.body,
-            "user.username: ", user.userName)
-        }
-    }) //api MUST have a return (this is not a return, it just updates array)
+    // console.log("this is the response", response)
+    const userMatched = users.find((user) => 
+        user.userName === request.body.userName
+        && user.password === request.body.password
+    ) 
+    console.log("userMatched", userMatched)
+    if (userMatched !== undefined) { 
+       return response.send(userMatched.id)
+    } else { 
+        response.status(400)
+        return response.send("Cannot find that username or password, please try again.")
+    }
+    //api MUST have a return (this is not a return, it just updates array)
     // console.log("request.body", request.body )
-    response.send(request.body)  //this is the actual return. 
-
+    // response.send(request.body)  //this is the actual return. 
+    
 }) // authentication time babey
+//if this is successful, set a boolean on the user object to true
+//on load (useEffect), if this is true, let users post, if the boolean is 
+//false tell them to login. 
+
+
+
 
 
 //starting a server on port 5000
