@@ -15,7 +15,8 @@ type User = {
     firstName: string,
     lastName: string,
     userName: string,
-    email: string
+    email: string,
+    password: string
 }
 
  type Login = { 
@@ -42,7 +43,8 @@ const users: User[] = [
         firstName: "victo",
         lastName: "porto",
         userName: "vicport",
-        email: "vicport@gmail.com"
+        email: "vicport@gmail.com",
+        password: "password"
     },
 
 ]
@@ -66,15 +68,7 @@ app.get("/", (request: Request, response: Response) => {
     response.send(user)
 })
 
-app.post("/login", (request: Request<Login>, response: Response<Login>) => { 
-    console.log("hello from the .login directory with request", request.body)
- 
 
-    users.find(request.body) //api MUST have a return (this is not a return, it just updates array)
-    // console.log("request.body", request.body )
-    response.send(request.body)  //this is the actual return. 
-
-})
 
 app.post("/posts", (request: Request<WallPost>, response: Response<WallPost>) => { 
     console.log("hello from the .post directory with request", request.body)
@@ -115,7 +109,28 @@ app.get("/registration", (request: Request, response: Response<User[]>) => {
 })
 
 
+//-------------Login----------
 
+app.get("/login", (request: Request, response: Response<User[]>) => { 
+
+})
+
+app.post("/login", (request: Request<Login>, response: Response<Login>) => { 
+    console.log("hello from the .login directory with request", request.body)
+ 
+console.log("this is the response", response)
+    let userMatch = users.find((user) => { 
+        if (user.userName  === request.body.userName && user.password === request.body.password ){ 
+            console.log("USER MATCH FOUND") //how to pull just the fields? 
+        } else {
+            return console.log("USER NOT FOUND", "request.body.userName", request.body,
+            "user.username: ", user.userName)
+        }
+    }) //api MUST have a return (this is not a return, it just updates array)
+    // console.log("request.body", request.body )
+    response.send(request.body)  //this is the actual return. 
+
+}) // authentication time babey
 
 
 //starting a server on port 5000
