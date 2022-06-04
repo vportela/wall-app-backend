@@ -24,6 +24,13 @@ type User = {
     userName: string,
     password: string
  }
+type UserRequestBody = { 
+    firstName: string,
+    lastName: string,
+    userName: string,
+    email: string,
+    password: string,
+}
 
 const wallPosts: WallPost[] = [
     { 
@@ -95,16 +102,30 @@ app.get("/posts", (request: Request, response: Response<WallPost[]>) => {
 
 //-----------Registration--------
 
-app.post("/registration", (request: Request<User>, response: Response<User>) => { 
+app.post(
+    "/registration", 
+    (request: Request<UserRequestBody>, response: Response<void>) => { 
     console.log("hello from the registration directory with request body", 
     request.body)
 
-    users.push(request.body)
-    response.send(request.body)
+    const lastInArray = users[users.length - 1]
+
+    const newUser: User = { 
+        id: (Number(lastInArray.id) + 1).toString(),
+        firstName: request.body.firstName,
+        lastName: request.body.lastName,
+        userName: request.body.userName,
+        email: request.body.email,
+        password: request.body.password,
+        loggedIn: false
+    }
+    users.push(newUser)
+    console.log("Users after registrationg", users)
+    response.send()
 })
 
-app.get("/registration", (request: Request, response: Response<User[]>) => { 
-    console.log("fetching new user")
+app.get("/users", (request: Request, response: Response<User[]>) => { 
+    console.log("fetching all existing users")
 
     response.send(users)
 
