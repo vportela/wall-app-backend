@@ -94,10 +94,13 @@ app.post(
     console.log("hello from the registration directory with request body", 
     request.body)
 
-    const lastInArray = users[users.length - 1]
+    const lastUserInArray = users[users.length - 1]
+    const lastUserId = lastUserInArray.id 
+    const numberId = Number(lastUserId) //Number casts lastUserId into a number, it is originally a string.
 
     const newUser: User = { 
-        id: (Number(lastInArray.id) + 1).toString(),
+        id: (numberId + 1).toString(), //now the id is a number, you add 1 to it and then turn it 
+        //back into a string because that is the correct datatype.
         firstName: request.body.firstName,
         lastName: request.body.lastName,
         userName: request.body.userName,
