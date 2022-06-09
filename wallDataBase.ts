@@ -2,13 +2,11 @@ import { User, WallPost } from "."
 
 export const wallPosts: WallPost[] = [
     { 
-        id: 1,
-        user: "newUser",
+        id: "1",
         text: "this is text"
     },
     { 
-        id: 2,
-        user: "newUser2",
+        id: "2",
         text: "testing new text"
     },    
 ]
@@ -21,6 +19,7 @@ export const users: User[] = [
         userName: "vicport",
         email: "vicport@gmail.com",
         password: "password",
-        loggedIn: false
+        isLoggedIn: false
+
     },
 ]

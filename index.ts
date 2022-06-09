@@ -2,14 +2,19 @@ import express, { Request , Response } from "express";
 import cors from "cors";
 import { users, wallPosts } from "./wallDataBase";
 
+
 const app = express()
 app.use( express.json() ) //this is parsing the request body into json
 
 export type WallPost = {
-    id: number,
-    user: string,
-    text: string
+    id: string,
+    text: string, 
 }
+
+type WallPostRequest = {
+    text: string, 
+    userId: string
+  }
 
 export type User = { 
     id: string,
@@ -18,8 +23,12 @@ export type User = {
     userName: string,
     email: string,
     password: string,
-    loggedIn: boolean
+    isLoggedIn: boolean
 }
+
+type HomeProps = { 
+    loggedInUser: SafeUser | undefined,
+  }
 
 type SafeUser = { 
     id: string,
@@ -27,7 +36,7 @@ type SafeUser = {
     lastName: string,
     userName: string,
     email: string,
-    loggedIn: boolean
+
 }
 
  type Login = { 
@@ -63,20 +72,30 @@ app.get("/", (request: Request, response: Response) => {
     response.send(user)
 })
 
+// if the user is undefined, dont let them post.
+//so if the data comes to the backend, and the user cannot be verified then don't let the
+//rest of the code run/ or return an error message.
 
-
-app.post("/posts", (request: Request<WallPost>, response: Response<WallPost>) => { 
+app.post("/posts", (request: Request<WallPostRequest>, response: Response<WallPost | string>) => { 
     console.log("hello from the .post directory with request", request.body)
-  //console.logs for backend show up in terminal, not browser
-    // const id = request.body.id;
-    // const user = request.body.user;
-    // const text = request.body.text;
-    // console.log("id", id)
-    // console.log("user", user)
-    // console.log("text", text)
-    wallPosts.push(request.body) //api MUST have a return (this is not a return, it just updates array)
+    const user = users.find(user => user.id === request.body.userId)
+    console.log("user", user)
+    if(user === undefined || user?.isLoggedIn === false) { 
+        response.status(401)
+        return response.send("please log in")
+    }
+    const lastPostInArray = wallPosts[wallPosts.length - 1]
+    const lastPostId = lastPostInArray.id 
+    const numberId = Number(lastPostId)
+    const newPost: WallPost = { 
+        id:(numberId + 1).toString(),
+        text: request.body.text,
+    }
+    
+    
+    wallPosts.push(newPost) //api MUST have a return (this is not a return, it just updates array)
     console.log("request.body", request.body )
-    response.send(request.body)  //this is the actual return. 
+    response.send(newPost)  //this is the actual return. 
 
 })
 
@@ -106,7 +125,7 @@ app.post(
         userName: request.body.userName,
         email: request.body.email,
         password: request.body.password,
-        loggedIn: false
+        isLoggedIn: false
     }
     users.push(newUser)
     console.log("Users after registrationg", users)
@@ -132,15 +151,17 @@ app.post("/login", (request: Request<Login>, response: Response<SafeUser | strin
     ) 
     console.log("userMatched", userMatched)
     if (userMatched !== undefined) { 
+        const index = users.findIndex(user => user.id === userMatched.id) 
+        userMatched.isLoggedIn = true
+        users.splice(index, 0, userMatched)
         const safeUser: SafeUser = { 
             id: userMatched.id,
             firstName: userMatched.firstName,
             lastName: userMatched.lastName,
             userName: userMatched.userName,
             email: userMatched.email,
-            loggedIn: true
         }
-
+    
        return response.send(safeUser)
     } else { 
         response.status(400)
