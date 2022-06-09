@@ -8,7 +8,9 @@ app.use( express.json() ) //this is parsing the request body into json
 
 export type WallPost = {
     id: string,
-    text: string, 
+    text: string,
+    userId: string,
+    userName: string
 }
 
 type WallPostRequest = {
@@ -84,12 +86,17 @@ app.post("/posts", (request: Request<WallPostRequest>, response: Response<WallPo
         response.status(401)
         return response.send("please log in")
     }
+ 
+
+
     const lastPostInArray = wallPosts[wallPosts.length - 1]
     const lastPostId = lastPostInArray.id 
     const numberId = Number(lastPostId)
     const newPost: WallPost = { 
         id:(numberId + 1).toString(),
         text: request.body.text,
+        userId: user.id,
+        userName: user.userName
     }
     
     
