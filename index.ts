@@ -1,7 +1,7 @@
 import express, { Request , Response } from "express";
 import cors from "cors";
 import { users, wallPosts } from "./wallDataBase";
-
+import db from "./databaseConnection";
 
 const app = express()
 app.use( express.json() ) //this is parsing the request body into json
@@ -78,10 +78,13 @@ app.get("/", (request: Request, response: Response) => {
 //so if the data comes to the backend, and the user cannot be verified then don't let the
 //rest of the code run/ or return an error message.
 
+
 app.post("/posts", (request: Request<WallPostRequest>, response: Response<WallPostDto | string>) => { 
     // console.log("hello from the .post directory with request", request.body)
 
     const user = users.find(user => user.id === request.body.userId)
+    // TODO: you have to get the user by going through the database the way you did for
+    // registration (where its all in caps and stuff)
     // console.log("user", user)
     if(user === undefined || user?.isLoggedIn === false) { 
         response.status(401)
@@ -105,7 +108,25 @@ app.post("/posts", (request: Request<WallPostRequest>, response: Response<WallPo
     
 
     
-    wallPosts.push(newPost) //api MUST have a return (this is not a return, it just updates array)
+    db.all(
+        `
+            INSERT INTO wall_post (id, text, user_id)
+            VALUES (?,?,?)
+        `,
+        [newPost.id, newPost.text, newPost.userId],
+        (error, rows) => { 
+            if(error) { 
+                console.log("there was an error inserting a wall post", error)
+                return 
+            } else { 
+                rows.forEach(row => { 
+                    console.log("row", row)
+                    console.log("row.text", row.text)
+                })
+                console.log("rows", rows)
+            }
+        }
+    ) //api MUST have a return (this is not a return, it just updates array)
     console.log("request.body", request.body )
     response.send(newPostDto)  //this is the actual return. 
 
@@ -145,6 +166,7 @@ app.post(
     request.body)
 
     const lastUserInArray = users[users.length - 1]
+    // TODO: we are no longer getting users from the array, they come out of the database. 
     const lastUserId = lastUserInArray.id 
     const numberId = Number(lastUserId) //Number casts lastUserId into a number, it is originally a string.
 
@@ -158,7 +180,17 @@ app.post(
         password: request.body.password,
         isLoggedIn: false
     }
-    users.push(newUser)
+    db.run(
+        `
+            INSERT INTO user (id, first_name, last_name, user_name, email, password, is_logged_in)
+            VALUES (?,?,?,?,?,?,?)
+        `,
+        [newUser.id, newUser.firstName, newUser.lastName, newUser.userName, newUser.email, newUser.password,
+        newUser.isLoggedIn],
+        (error) => {
+            console.log("there was an error inserting a user into the user table", error)
+        }
+    )
     console.log("Users after registrationg", users)
     response.send()
 })
@@ -176,31 +208,27 @@ app.get("/users", (request: Request, response: Response<User[]>) => {
 app.post("/login", (request: Request<Login>, response: Response<SafeUser | string>) => { 
     console.log("hello from the .login directory with request", request.body)
     // console.log("this is the response", response)
-    const userMatched = users.find((user) => 
-        user.userName === request.body.userName
-        && user.password === request.body.password
-    ) 
-    console.log("userMatched", userMatched)
-    if (userMatched !== undefined) { 
-        const index = users.findIndex(user => user.id === userMatched.id) 
-        userMatched.isLoggedIn = true
-        users.splice(index, 0, userMatched)
-        const safeUser: SafeUser = { 
-            id: userMatched.id,
-            firstName: userMatched.firstName,
-            lastName: userMatched.lastName,
-            userName: userMatched.userName,
-            email: userMatched.email,
+    db.get(
+        `SELECT * FROM user WHERE user_name = ? AND password = ?`,
+        [request.body.userName, request.body.password],
+        (error, row) => { 
+            if (error) { 
+                response.status(400)
+                return response.send("Cannot find that username or password, please try again.")
+            } else { 
+                console.log("row", row)
+                const safeUser: SafeUser = { 
+                    id: row.id,
+                    firstName: row.first_name,
+                    lastName: row.last_name,
+                    userName: row.user_name,
+                    email: row.email,
+                }
+            
+               return response.send(safeUser)
+            }
         }
-    
-       return response.send(safeUser)
-    } else { 
-        response.status(400)
-        return response.send("Cannot find that username or password, please try again.")
-    }
-    //api MUST have a return (this is not a return, it just updates array)
-    // console.log("request.body", request.body )
-    // response.send(request.body)  //this is the actual return. 
+    )
     
 }) 
 
