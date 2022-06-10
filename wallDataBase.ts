@@ -40,18 +40,15 @@ export const wallPosts: WallPost[] = [
         id: "1",
         text: "this is text",
         userId: "10",
-        userName: users[0].userName
     },
     { 
         id: "2",
         text: "testing new text",
         userId: "20",
-        userName: users[1].userName
     },    
     { 
         id: "3",
         text: "you can post on the wall if youre logged in",
         userId: "30",
-        userName: users[2].userName
     },    
 ]

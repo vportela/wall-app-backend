@@ -10,13 +10,18 @@ export type WallPost = {
     id: string,
     text: string,
     userId: string,
-    userName: string
 }
 
 type WallPostRequest = {
     text: string, 
     userId: string
   }
+
+type WallPostDto = { 
+    id: string,
+    text: string,
+    user: SafeUser, 
+}
 
 export type User = { 
     id: string,
@@ -28,17 +33,12 @@ export type User = {
     isLoggedIn: boolean
 }
 
-type HomeProps = { 
-    loggedInUser: SafeUser | undefined,
-  }
-
 type SafeUser = { 
     id: string,
     firstName: string,
     lastName: string,
     userName: string,
     email: string,
-
 }
 
  type Login = { 
@@ -78,16 +78,15 @@ app.get("/", (request: Request, response: Response) => {
 //so if the data comes to the backend, and the user cannot be verified then don't let the
 //rest of the code run/ or return an error message.
 
-app.post("/posts", (request: Request<WallPostRequest>, response: Response<WallPost | string>) => { 
-    console.log("hello from the .post directory with request", request.body)
+app.post("/posts", (request: Request<WallPostRequest>, response: Response<WallPostDto | string>) => { 
+    // console.log("hello from the .post directory with request", request.body)
+
     const user = users.find(user => user.id === request.body.userId)
-    console.log("user", user)
+    // console.log("user", user)
     if(user === undefined || user?.isLoggedIn === false) { 
         response.status(401)
         return response.send("please log in")
     }
- 
-
 
     const lastPostInArray = wallPosts[wallPosts.length - 1]
     const lastPostId = lastPostInArray.id 
@@ -96,21 +95,46 @@ app.post("/posts", (request: Request<WallPostRequest>, response: Response<WallPo
         id:(numberId + 1).toString(),
         text: request.body.text,
         userId: user.id,
-        userName: user.userName
+    }
+
+    const newPostDto: WallPostDto = { 
+        id: newPost.id,
+        text: newPost.text,
+        user: user
     }
     
+
     
     wallPosts.push(newPost) //api MUST have a return (this is not a return, it just updates array)
     console.log("request.body", request.body )
-    response.send(newPost)  //this is the actual return. 
+    response.send(newPostDto)  //this is the actual return. 
 
 })
 
-app.get("/posts", (request: Request, response: Response<WallPost[]>) => { 
+app.get("/posts", (request: Request, response: Response<WallPostDto[]>) => { 
     console.log("fetching posts")
     // console.log("newMessageArray", newMessageArray)    
-    response.send(wallPosts)
+
+
+    const wallPostDtos: WallPostDto[] = wallPosts.map(wallPost => { 
+        const user = users.find(user => user.id === wallPost.userId)!
+        const safeUser: SafeUser = { 
+            id: user.id,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            userName: user.userName,
+            email: user.email
+        }
+        return {
+            id: wallPost.id,
+            text: wallPost.text,
+            user: safeUser
+        }
+    })
+ 
+    response.send(wallPostDtos)
 })
+
 
 //-----------Registration--------
 
@@ -178,11 +202,26 @@ app.post("/login", (request: Request<Login>, response: Response<SafeUser | strin
     // console.log("request.body", request.body )
     // response.send(request.body)  //this is the actual return. 
     
-}) // authentication time babey
-//if this is successful, set a boolean on the user object to true
-//on load (useEffect), if this is true, let users post, if the boolean is 
-//false tell them to login. 
+}) 
 
+//---------------LogOut--------
+
+app.post("/logout", (request: Request, response: Response<string>) => { 
+    console.log("hello from logout directory with request", request.body)
+    const userMatched = users.find((user) => 
+        user.id === request.body.id
+    ) 
+    if (userMatched !== undefined) { 
+        const index = users.findIndex(user => user.id === userMatched.id) 
+        userMatched.isLoggedIn = false
+        users.splice(index, 0, userMatched)
+        return response.send()
+    } else { 
+        response.status(404)
+        return response.send("Couldn't find user to log out")
+    }
+    
+})
 
 
 
