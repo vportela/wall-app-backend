@@ -1,6 +1,5 @@
 import express, { Request, Response } from "express";
 import cors from "cors";
-import { users, wallPosts } from "./wallDataBase";
 import db from "./databaseConnection";
 import cookieParser from "cookie-parser";
 
@@ -33,7 +32,6 @@ export type User = {
     userName: string,
     email: string,
     password: string,
-    isLoggedIn: boolean
 }
 
 type SafeUser = {
@@ -184,7 +182,6 @@ app.post(
                 userName: request.body.userName,
                 email: request.body.email,
                 password: request.body.password,
-                isLoggedIn: request.body.is_logged_in
 
             }
                 db.run(
@@ -192,8 +189,7 @@ app.post(
                     INSERT INTO user (id, first_name, last_name, user_name, email, password, is_logged_in)
                     VALUES (?,?,?,?,?,?,?)
                 `,
-                    [user.id, user.firstName, user.lastName, user.userName, user.email, user.password,
-                    user.isLoggedIn],
+                    [user.id, user.firstName, user.lastName, user.userName, user.email, user.password],
                     (error) => {
                         if (error) {
                             console.log("there was an error inserting a user into the user table", error)
