@@ -56,8 +56,6 @@ type UserRequestBody = {
     password: string,
 }
 
-
-
 const getUserFromSession = (request: Request, callback: (error: any, safeUser: SafeUser | undefined, sessionId: Number | undefined) => void) => {
     console.log("checking session");
     console.log('Cookies: ', request.cookies);
@@ -169,23 +167,6 @@ app.get("/posts", (request: Request, response: Response<WallPostDto[]>) => {
             }
         }))
     })
-    // const wallPostDtos: WallPostDto[] = wallPosts.map(wallPost => {
-    //     // const user = users.find(user => user.id === wallPost.userId)!
-    //     // const safeUser: SafeUser = {
-    //     //     id: user.id,
-    //     //     firstName: user.firstName,
-    //     //     lastName: user.lastName,
-    //     //     userName: user.userName,
-    //     //     email: user.email
-    //     // }
-    //     // return {
-    //     //     id: wallPost.id,
-    //     //     text: wallPost.text,
-    //     //     user: safeUser
-    //     // }
-    // })
-
-    // response.send(wallPostDtos)
 })
 
 
@@ -221,7 +202,7 @@ app.post(
                 )
                 response.send()
             })
-        
+       
 
 
 
