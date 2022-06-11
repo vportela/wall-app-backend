@@ -1,10 +1,12 @@
-import express, { Request , Response } from "express";
+import express, { Request, Response } from "express";
 import cors from "cors";
 import { users, wallPosts } from "./wallDataBase";
 import db from "./databaseConnection";
+import cookieParser from "cookie-parser";
 
 const app = express()
-app.use( express.json() ) //this is parsing the request body into json
+app.use(express.json()) //this is parsing the request body into json
+app.use(cookieParser());
 
 export type WallPost = {
     id: string,
@@ -13,17 +15,18 @@ export type WallPost = {
 }
 
 type WallPostRequest = {
-    text: string, 
-    userId: string
-  }
-
-type WallPostDto = { 
-    id: string,
     text: string,
-    user: SafeUser, 
+    userId: string
 }
 
-export type User = { 
+type WallPostDto = {
+    id: string,
+    text: string,
+    userId: string,
+    userName: string,
+}
+
+export type User = {
     id: string,
     firstName: string,
     lastName: string,
@@ -33,7 +36,7 @@ export type User = {
     isLoggedIn: boolean
 }
 
-type SafeUser = { 
+type SafeUser = {
     id: string,
     firstName: string,
     lastName: string,
@@ -41,16 +44,50 @@ type SafeUser = {
     email: string,
 }
 
- type Login = { 
+type Login = {
     userName: string,
     password: string
- }
-type UserRequestBody = { 
+}
+type UserRequestBody = {
     firstName: string,
     lastName: string,
     userName: string,
     email: string,
     password: string,
+}
+
+const getUserFromSession = (request: Request, callback: (error: any, safeUser: SafeUser | undefined, sessionId: Number | undefined) => void) => {
+    console.log("checking session");
+    console.log('Cookies: ', request.cookies);
+    let sessionId = request.cookies['sessionId'];
+    if (sessionId) {
+        sessionId = Number(sessionId);
+        db.get(
+            `SELECT 
+                user.id, user.first_name, user.last_name, user.user_name, user.email 
+            FROM user join session on session.user_id = user.id WHERE session.id = ?`,
+            [sessionId],
+            (error, row) => {
+                if (error) {
+                    callback(error, undefined, undefined)
+                } else {
+                    console.log("row", row)
+
+                    const safeUser: SafeUser = {
+                        id: row.id,
+                        firstName: row.first_name,
+                        lastName: row.last_name,
+                        userName: row.user_name,
+                        email: row.email,
+                    }
+
+                    callback(null, safeUser, sessionId)
+                }
+            }
+        )
+    } else {
+        callback("No Session ID", undefined, undefined)
+    }
 }
 
 
@@ -61,12 +98,13 @@ type UserRequestBody = {
 //if unsuccessful, err "cannot find username or password"
 
 app.use(cors({
-    origin: "http://localhost:3000"
+    origin: "http://localhost:3000",
+    credentials: true
 }))
 
-app.get("/", (request: Request, response: Response) => { 
+app.get("/", (request: Request, response: Response) => {
     console.log("console.log, hello from the home directory")
-    const user = { 
+    const user = {
         firstName: "tom",
         lastName: "grdkfh",
         email: "tom@gmail.com"
@@ -79,183 +117,218 @@ app.get("/", (request: Request, response: Response) => {
 //rest of the code run/ or return an error message.
 
 
-app.post("/posts", (request: Request<WallPostRequest>, response: Response<WallPostDto | string>) => { 
+app.post("/posts", (request: Request<WallPostRequest>, response: Response<WallPostDto | string>) => {
     // console.log("hello from the .post directory with request", request.body)
 
-    const user = users.find(user => user.id === request.body.userId)
-    // TODO: you have to get the user by going through the database the way you did for
-    // registration (where its all in caps and stuff)
-    // console.log("user", user)
-    if(user === undefined || user?.isLoggedIn === false) { 
-        response.status(401)
-        return response.send("please log in")
-    }
 
-    const lastPostInArray = wallPosts[wallPosts.length - 1]
-    const lastPostId = lastPostInArray.id 
-    const numberId = Number(lastPostId)
-    const newPost: WallPost = { 
-        id:(numberId + 1).toString(),
-        text: request.body.text,
-        userId: user.id,
-    }
-
-    const newPostDto: WallPostDto = { 
-        id: newPost.id,
-        text: newPost.text,
-        user: user
-    }
-    
-
-    
-    db.all(
-        `
-            INSERT INTO wall_post (id, text, user_id)
-            VALUES (?,?,?)
-        `,
-        [newPost.id, newPost.text, newPost.userId],
-        (error, rows) => { 
-            if(error) { 
-                console.log("there was an error inserting a wall post", error)
-                return 
-            } else { 
-                rows.forEach(row => { 
-                    console.log("row", row)
-                    console.log("row.text", row.text)
-                })
-                console.log("rows", rows)
-            }
+    getUserFromSession(request, (error, user, sessionId) => {
+        if (error) {
+            console.log("error logout:", error)
+            response.status(403)
+            return response.send("User not logged in")
         }
-    ) //api MUST have a return (this is not a return, it just updates array)
-    console.log("request.body", request.body )
-    response.send(newPostDto)  //this is the actual return. 
+        if (!user) {
+            console.log("missing user")
+            response.status(500)
+            return response.send("Cant find user")
+        }
+        const postText = request.body.text
+        db.run(
+            `
+                INSERT INTO wall_post (text, user_id)
+                VALUES (?,?)
+            `,
+            [postText, user.id],
+            function (error) {
+                if (error) {
+                    console.log("there was an error inserting a wall post", error)
+                    response.status(500)
+                    return response.send("there was an error making a new post")
+                } 
+                console.log("request.body", request.body)
+                return response.send({id: this.lastID.toString(10), text: postText, userId: user.id, userName: user.userName})
+            }
+        ) 
+        
+    });
+// look at how posts are posted, which is an example of how the registration should work.
+//instead of posting into a wall post you need to post into the user.
+
+//make sure no ne is logged in, insert into the user and then say if it worked or didnt work. 
+   
 
 })
 
-app.get("/posts", (request: Request, response: Response<WallPostDto[]>) => { 
+app.get("/posts", (request: Request, response: Response<WallPostDto[]>) => {
     console.log("fetching posts")
     // console.log("newMessageArray", newMessageArray)    
 
-
-    const wallPostDtos: WallPostDto[] = wallPosts.map(wallPost => { 
-        const user = users.find(user => user.id === wallPost.userId)!
-        const safeUser: SafeUser = { 
-            id: user.id,
-            firstName: user.firstName,
-            lastName: user.lastName,
-            userName: user.userName,
-            email: user.email
+    db.all(`SELECT wall_post.id, wall_post.user_id, wall_post.text, user.user_name FROM wall_post join user on user.id = wall_post.user_id`,
+    (error, rows) => {
+        if(error) { 
+            response.status(500)
+            console.log("something went wrong getting posts", error)
+            return response.send([])
         }
-        return {
-            id: wallPost.id,
-            text: wallPost.text,
-            user: safeUser
-        }
+        console.log("post rows", rows);
+        response.send(rows.map(row => { 
+            return { 
+                id: row.id,
+                text: row.text,
+                userId: row.user_id,
+                userName: row.user_name
+            }
+        }))
     })
- 
-    response.send(wallPostDtos)
+    // const wallPostDtos: WallPostDto[] = wallPosts.map(wallPost => {
+    //     // const user = users.find(user => user.id === wallPost.userId)!
+    //     // const safeUser: SafeUser = {
+    //     //     id: user.id,
+    //     //     firstName: user.firstName,
+    //     //     lastName: user.lastName,
+    //     //     userName: user.userName,
+    //     //     email: user.email
+    //     // }
+    //     // return {
+    //     //     id: wallPost.id,
+    //     //     text: wallPost.text,
+    //     //     user: safeUser
+    //     // }
+    // })
+
+    // response.send(wallPostDtos)
 })
 
 
 //-----------Registration--------
 
 app.post(
-    "/registration", 
-    (request: Request<UserRequestBody>, response: Response<void>) => { 
-    console.log("hello from the registration directory with request body", 
-    request.body)
+    "/registration",
+    (request: Request<UserRequestBody>, response: Response<void>) => {
+        console.log("hello from the registration directory with request body",
+            request.body)
 
-    const lastUserInArray = users[users.length - 1]
-    // TODO: we are no longer getting users from the array, they come out of the database. 
-    const lastUserId = lastUserInArray.id 
-    const numberId = Number(lastUserId) //Number casts lastUserId into a number, it is originally a string.
+        const lastUserInArray = users[users.length - 1]
+        // TODO: we are no longer getting users from the array, they come out of the database. 
+        const lastUserId = lastUserInArray.id
+        const numberId = Number(lastUserId) //Number casts lastUserId into a number, it is originally a string.
 
-    const newUser: User = { 
-        id: (numberId + 1).toString(), //now the id is a number, you add 1 to it and then turn it 
-        //back into a string because that is the correct datatype.
-        firstName: request.body.firstName,
-        lastName: request.body.lastName,
-        userName: request.body.userName,
-        email: request.body.email,
-        password: request.body.password,
-        isLoggedIn: false
-    }
-    db.run(
-        `
+        const newUser: User = {
+            id: (numberId + 1).toString(), //now the id is a number, you add 1 to it and then turn it 
+            //back into a string because that is the correct datatype.
+            firstName: request.body.firstName,
+            lastName: request.body.lastName,
+            userName: request.body.userName,
+            email: request.body.email,
+            password: request.body.password,
+            isLoggedIn: false
+        }
+        db.run(
+            `
             INSERT INTO user (id, first_name, last_name, user_name, email, password, is_logged_in)
             VALUES (?,?,?,?,?,?,?)
         `,
-        [newUser.id, newUser.firstName, newUser.lastName, newUser.userName, newUser.email, newUser.password,
-        newUser.isLoggedIn],
-        (error) => {
-            console.log("there was an error inserting a user into the user table", error)
-        }
-    )
-    console.log("Users after registrationg", users)
-    response.send()
-})
+            [newUser.id, newUser.firstName, newUser.lastName, newUser.userName, newUser.email, newUser.password,
+            newUser.isLoggedIn],
+            (error) => {
+                if (error) {
+                    console.log("there was an error inserting a user into the user table", error)
+                }
+            }
+        )
+        console.log("Users after registrationg", users)
+        response.send()
+    })
 
-app.get("/users", (request: Request, response: Response<User[]>) => { 
+app.get("/users", (request: Request, response: Response<SafeUser[]>) => {
     console.log("fetching all existing users")
 
-    response.send(users)
-
-})
-
-
-//-------------Login----------
-
-app.post("/login", (request: Request<Login>, response: Response<SafeUser | string>) => { 
-    console.log("hello from the .login directory with request", request.body)
-    // console.log("this is the response", response)
-    db.get(
-        `SELECT * FROM user WHERE user_name = ? AND password = ?`,
-        [request.body.userName, request.body.password],
-        (error, row) => { 
-            if (error) { 
-                response.status(400)
-                return response.send("Cannot find that username or password, please try again.")
-            } else { 
-                console.log("row", row)
-                const safeUser: SafeUser = { 
+    db.all(
+        `SELECT id, first_name, last_name, user_name, email FROM user`,
+        (error, rows) => {
+            if (error) {
+                response.status(500)
+                return response.send([])
+            }
+            response.send(rows.map(row => {
+                return {
                     id: row.id,
                     firstName: row.first_name,
                     lastName: row.last_name,
                     userName: row.user_name,
                     email: row.email,
                 }
-            
-               return response.send(safeUser)
+            }))
+        }
+    )
+})
+
+
+//-------------Login----------
+
+app.post("/login", (request: Request<Login>, response: Response<SafeUser | string>) => {
+    console.log("hello from the .login directory with request", request.body)
+    // console.log("this is the response", response)
+    db.get(
+        `SELECT * FROM user WHERE user_name = ? AND password = ?`,
+        [request.body.userName, request.body.password],
+        (error, row) => {
+            if (error) {
+                response.status(400)
+                return response.send("Cannot find that username or password, please try again.")
+            } else {
+                console.log("row", row)
+
+                const safeUser: SafeUser = {
+                    id: row.id,
+                    firstName: row.first_name,
+                    lastName: row.last_name,
+                    userName: row.user_name,
+                    email: row.email,
+                }
+
+                db.run("INSERT INTO session (user_id) VALUES (?)",
+                    [row.id],
+                    function (error) {
+                        if (error) {
+                            console.log("there was an error inserting a user into the user table", error)
+                            response.status(500)
+                            return response.send("Cannot insert session.")
+                        }
+
+                        response.cookie("sessionId", this.lastID.toString())
+                        return response.send(safeUser)
+                    }
+                )
             }
         }
     )
-    
-}) 
+
+})
 
 //---------------LogOut--------
 
-app.post("/logout", (request: Request, response: Response<string>) => { 
+app.post("/logout", (request: Request, response: Response<string>) => {
     console.log("hello from logout directory with request", request.body)
-    const userMatched = users.find((user) => 
-        user.id === request.body.id
-    ) 
-    if (userMatched !== undefined) { 
-        const index = users.findIndex(user => user.id === userMatched.id) 
-        userMatched.isLoggedIn = false
-        users.splice(index, 0, userMatched)
-        return response.send()
-    } else { 
-        response.status(404)
-        return response.send("Couldn't find user to log out")
-    }
-    
+    getUserFromSession(request, (error, user, sessionId) => {
+        if (error) {
+            console.log("error logout:", error)
+            response.status(403)
+            return response.send("User not logged in")
+        }
+
+        console.log("logout user")
+        db.run('DELETE from session where id = ?', [sessionId]);
+        response.clearCookie('sessionId');
+        return response.send();
+    });
 })
 
 
 
 
 //starting a server on port 5000
-app.listen(5000, () => { 
+app.listen(5000, () => {
     console.log(`succesfully running backend on port 5000!!`)
 })
 
@@ -276,5 +349,6 @@ app.listen(5000, () => {
 
 //,mini stretch goal, if successful, show success message that takes you to login page
 //on login page can say "user successfully created, please login!" and then let ppl login
+
 
 

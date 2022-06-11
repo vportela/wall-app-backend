@@ -16,8 +16,8 @@ const createTables = () => {
     console.log("creating tables")
     db.exec(
         `
-            CREATE TABLE user (
-                id text PRIMARY KEY,
+            CREATE TABLE IF NOT EXISTS user (
+                id integer PRIMARY KEY AUTOINCREMENT,
                 first_name text,
                 last_name text,
                 user_name text,
@@ -25,10 +25,14 @@ const createTables = () => {
                 password text,
                 is_logged_in bool
             );
-            CREATE TABLE wall_post (
-                id text PRIMARY KEY,
+            CREATE TABLE IF NOT EXISTS session (
+                id integer PRIMARY KEY AUTOINCREMENT,
+                user_id integer REFERENCES user (id)
+            );
+            CREATE TABLE IF NOT EXISTS wall_post (
+                id integer PRIMARY KEY AUTOINCREMENT,
                 text text,
-                user_id text REFERENCES user (id)
+                user_id integer REFERENCES user (id)
             );
         `,
         (error) => {
