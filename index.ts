@@ -56,6 +56,8 @@ type UserRequestBody = {
     password: string,
 }
 
+
+
 const getUserFromSession = (request: Request, callback: (error: any, safeUser: SafeUser | undefined, sessionId: Number | undefined) => void) => {
     console.log("checking session");
     console.log('Cookies: ', request.cookies);
@@ -81,6 +83,7 @@ const getUserFromSession = (request: Request, callback: (error: any, safeUser: S
                         email: row.email,
                     }
 
+
                     callback(null, safeUser, sessionId)
                 }
             }
@@ -89,13 +92,6 @@ const getUserFromSession = (request: Request, callback: (error: any, safeUser: S
         callback("No Session ID", undefined, undefined)
     }
 }
-
-
-//make a post call to log the user in, use .find to parse through array of users
-//and match the user to a user in the array.
-//if that is successful, response.send that it was successful 
-//take user to homepage
-//if unsuccessful, err "cannot find username or password"
 
 app.use(cors({
     origin: "http://localhost:3000",
@@ -112,14 +108,7 @@ app.get("/", (request: Request, response: Response) => {
     response.send(user)
 })
 
-// if the user is undefined, dont let them post.
-//so if the data comes to the backend, and the user cannot be verified then don't let the
-//rest of the code run/ or return an error message.
-
-
 app.post("/posts", (request: Request<WallPostRequest>, response: Response<WallPostDto | string>) => {
-    // console.log("hello from the .post directory with request", request.body)
-
 
     getUserFromSession(request, (error, user, sessionId) => {
         if (error) {
@@ -204,41 +193,37 @@ app.get("/posts", (request: Request, response: Response<WallPostDto[]>) => {
 
 app.post(
     "/registration",
-    (request: Request<UserRequestBody>, response: Response<void>) => {
+    (request: Request<UserRequestBody>, response: Response<void | string>) => {
         console.log("hello from the registration directory with request body",
             request.body)
+            const user: User = {
+                id: request.body.id,
+                firstName: request.body.firstName,
+                lastName: request.body.lastName,
+                userName: request.body.userName,
+                email: request.body.email,
+                password: request.body.password,
+                isLoggedIn: request.body.is_logged_in
 
-        const lastUserInArray = users[users.length - 1]
-        // TODO: we are no longer getting users from the array, they come out of the database. 
-        const lastUserId = lastUserInArray.id
-        const numberId = Number(lastUserId) //Number casts lastUserId into a number, it is originally a string.
-
-        const newUser: User = {
-            id: (numberId + 1).toString(), //now the id is a number, you add 1 to it and then turn it 
-            //back into a string because that is the correct datatype.
-            firstName: request.body.firstName,
-            lastName: request.body.lastName,
-            userName: request.body.userName,
-            email: request.body.email,
-            password: request.body.password,
-            isLoggedIn: false
-        }
-        db.run(
-            `
-            INSERT INTO user (id, first_name, last_name, user_name, email, password, is_logged_in)
-            VALUES (?,?,?,?,?,?,?)
-        `,
-            [newUser.id, newUser.firstName, newUser.lastName, newUser.userName, newUser.email, newUser.password,
-            newUser.isLoggedIn],
-            (error) => {
-                if (error) {
-                    console.log("there was an error inserting a user into the user table", error)
-                }
             }
-        )
-        console.log("Users after registrationg", users)
-        response.send()
-    })
+                db.run(
+                    `
+                    INSERT INTO user (id, first_name, last_name, user_name, email, password, is_logged_in)
+                    VALUES (?,?,?,?,?,?,?)
+                `,
+                    [user.id, user.firstName, user.lastName, user.userName, user.email, user.password,
+                    user.isLoggedIn],
+                    (error) => {
+                        if (error) {
+                            console.log("there was an error inserting a user into the user table", error)
+                        }
+                    }
+                )
+                response.send()
+            })
+        
+
+
 
 app.get("/users", (request: Request, response: Response<SafeUser[]>) => {
     console.log("fetching all existing users")
@@ -332,23 +317,6 @@ app.listen(5000, () => {
     console.log(`succesfully running backend on port 5000!!`)
 })
 
-
-//work on registration
-//when user inputs their information, it will be posted to the back end
-//where the info gets pushed into an array of users, and the api
-//returns void 
-//on success response, redirect to login page, and then there can be a new user success message
-//if unsuccessful, it will stay on the page with an error message
-//usehistory/uselocation from react router
-
-// work on login
-//when user inputs their info, it will be 
-
-
-//take in password on registration, pw should not be readable to user
-
-//,mini stretch goal, if successful, show success message that takes you to login page
-//on login page can say "user successfully created, please login!" and then let ppl login
 
 
 
