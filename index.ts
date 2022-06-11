@@ -25,12 +25,12 @@ type WallPostRequest = {
 type WallPostDto = {
     id: string,
     text: string,
-    userId: string,
+    userId: number,
     userName: string,
 }
 
 export type User = {
-    id: string,
+    id: number,
     firstName: string,
     lastName: string,
     userName: string,
@@ -38,8 +38,17 @@ export type User = {
     password: string,
 }
 
+type UserTable = { 
+    id: number, 
+    first_name: string,
+    last_name: string,
+    user_name: string, 
+    email: string
+    password: string,
+}
+
 type SafeUser = {
-    id: string,
+    id: number,
     firstName: string,
     lastName: string,
     userName: string,
@@ -56,6 +65,10 @@ type UserRequestBody = {
     userName: string,
     email: string,
     password: string,
+}
+type Session = { 
+    id: number,
+    userId: number
 }
 
 const getUserFromSession = (request: Request, callback: (error: any, safeUser: SafeUser | undefined, sessionId: Number | undefined) => void) => {
@@ -90,7 +103,6 @@ const getUserFromSession = (request: Request, callback: (error: any, safeUser: S
         callback("No Session ID", undefined, undefined)
     }
 }
-
 
 app.post("/registration",(request: Request<UserRequestBody>, response: Response<void | string>) => {
     console.log("hello from the registration directory with request body",request.body)
@@ -158,6 +170,34 @@ app.post("/login", (request: Request<Login>, response: Response<SafeUser | strin
 
 })
 
+app.get("/authenticate", (request: Request, response: Response) => { 
+    console.log("request.session", request.cookies.sessionId)
+    if(request.cookies.sessionId) { 
+        db.get(
+            `
+                SELECT u.* FROM user u
+                JOIN session s ON s.user_id = u.id
+                WHERE s.id = ?
+            `,
+            [request.cookies.sessionId],
+            (error, row: UserTable) => { 
+                if(error) { 
+                    console.log("there was an error getting a user by session Id", error)
+                }
+                console.log("row", row)
+                const safeUser: SafeUser = { 
+                    id: row.id,
+                    firstName: row.first_name,
+                    lastName: row.last_name,
+                    userName: row.user_name,
+                    email: row.email,
+                }
+                return response.send(safeUser)
+            }
+        )
+    } 
+})
+
 app.post("/logout", (request: Request, response: Response<string>) => {
     console.log("hello from logout directory with request", request.body)
     getUserFromSession(request, (error, user, sessionId) => { // TODO: SIMPLIFY ME ------------
@@ -172,6 +212,22 @@ app.post("/logout", (request: Request, response: Response<string>) => {
         response.clearCookie('sessionId');
         return response.send();
     });
+})
+
+app.get("/session", (request: Request, response: Response) => {
+    db.all( `SELECT * FROM session;`, [], (error, rows) => { 
+        if(error) {
+            console.log("error", error)
+        }
+        console.log("session rows", rows)
+        const sessions: Session[] = rows.map(row => { 
+            return {
+                id: row.id,
+                userId: row.user_id
+            }
+        }) 
+        return response.send(sessions) 
+    })
 })
 
 app.get("/users", (request: Request, response: Response<SafeUser[]>) => {
