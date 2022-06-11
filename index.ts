@@ -106,21 +106,20 @@ const getUserFromSession = (request: Request, callback: (error: any, safeUser: S
 
 app.post("/registration",(request: Request<UserRequestBody>, response: Response<void | string>) => {
     console.log("hello from the registration directory with request body",request.body)
-    const user: User = {
-        id: request.body.id, // TODO: what is this ID? ---------------------------
+    const user: UserRequestBody = {
         firstName: request.body.firstName,
         lastName: request.body.lastName,
         userName: request.body.userName,
         email: request.body.email,
         password: request.body.password,
     }
-    // TODO: delete the id -------------------------------------------
+   
     db.run(
         `
-        INSERT INTO user (id, first_name, last_name, user_name, email, password, is_logged_in)
-        VALUES (?,?,?,?,?,?,?)
+            INSERT INTO user (first_name, last_name, user_name, email, password)
+            VALUES (?,?,?,?,?)
         `,
-        [user.id, user.firstName, user.lastName, user.userName, user.email, user.password],
+        [user.firstName, user.lastName, user.userName, user.email, user.password],
         (error) => {
             if (error) {
                 console.log("there was an error inserting a user into the user table", error)
@@ -137,7 +136,7 @@ app.post("/login", (request: Request<Login>, response: Response<SafeUser | strin
         [request.body.userName, request.body.password],
         (error, row) => {
             if (error) {
-                response.status(400) //TODO : change code to 404 -----------------------
+                response.status(404)
                 return response.send("Cannot find that username or password, please try again.")
             } else {
                 console.log("row", row)
@@ -200,7 +199,7 @@ app.get("/authenticate", (request: Request, response: Response) => {
 
 app.post("/logout", (request: Request, response: Response<string>) => {
     console.log("hello from logout directory with request", request.body)
-    getUserFromSession(request, (error, user, sessionId) => { // TODO: SIMPLIFY ME ------------
+    getUserFromSession(request, (error, user, sessionId) => { 
         if (error) {
             console.log("error logout:", error)
             response.status(403)
@@ -233,7 +232,7 @@ app.get("/session", (request: Request, response: Response) => {
 app.get("/users", (request: Request, response: Response<SafeUser[]>) => {
     console.log("fetching all existing users")
     db.all(
-        `SELECT id, first_name, last_name, user_name, email FROM user`, // TODO: SIMPLIFY ME ----- //
+        `SELECT id, first_name, last_name, user_name, email FROM user`, 
         (error, rows) => {
             if (error) {
                 response.status(500)
@@ -254,7 +253,7 @@ app.get("/users", (request: Request, response: Response<SafeUser[]>) => {
 
 app.post("/posts", (request: Request<WallPostRequest>, response: Response<WallPostDto | string>) => {
 
-    getUserFromSession(request, (error, user, sessionId) => { //TODO: simplify meeeeeeeee
+    getUserFromSession(request, (error, user, sessionId) => { 
         if (error) {
             console.log("error logout:", error)
             response.status(403)
@@ -289,7 +288,7 @@ app.post("/posts", (request: Request<WallPostRequest>, response: Response<WallPo
 
 app.get("/posts", (request: Request, response: Response<WallPostDto[]>) => {
     console.log("fetching posts")
-    // TODO: SIMPLIFY ME -------------------------------------------------
+
     db.all(
         `SELECT wall_post.id, wall_post.user_id, wall_post.text, user.user_name FROM wall_post join user on user.id = wall_post.user_id`,
         (error, rows) => {
