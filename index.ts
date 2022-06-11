@@ -6,6 +6,10 @@ import cookieParser from "cookie-parser";
 const app = express()
 app.use(express.json()) //this is parsing the request body into json
 app.use(cookieParser());
+app.use(cors({
+    origin: "http://localhost:3000",
+    credentials: true
+}))
 
 export type WallPost = {
     id: string,
@@ -78,8 +82,6 @@ const getUserFromSession = (request: Request, callback: (error: any, safeUser: S
                         userName: row.user_name,
                         email: row.email,
                     }
-
-
                     callback(null, safeUser, sessionId)
                 }
             }
@@ -89,24 +91,114 @@ const getUserFromSession = (request: Request, callback: (error: any, safeUser: S
     }
 }
 
-app.use(cors({
-    origin: "http://localhost:3000",
-    credentials: true
-}))
 
-app.get("/", (request: Request, response: Response) => {
-    console.log("console.log, hello from the home directory")
-    const user = {
-        firstName: "tom",
-        lastName: "grdkfh",
-        email: "tom@gmail.com"
+app.post("/registration",(request: Request<UserRequestBody>, response: Response<void | string>) => {
+    console.log("hello from the registration directory with request body",request.body)
+    const user: User = {
+        id: request.body.id, // TODO: what is this ID? ---------------------------
+        firstName: request.body.firstName,
+        lastName: request.body.lastName,
+        userName: request.body.userName,
+        email: request.body.email,
+        password: request.body.password,
     }
-    response.send(user)
+    // TODO: delete the id -------------------------------------------
+    db.run(
+        `
+        INSERT INTO user (id, first_name, last_name, user_name, email, password, is_logged_in)
+        VALUES (?,?,?,?,?,?,?)
+        `,
+        [user.id, user.firstName, user.lastName, user.userName, user.email, user.password],
+        (error) => {
+            if (error) {
+                console.log("there was an error inserting a user into the user table", error)
+            }
+        }
+    )
+    response.send()
+})
+
+app.post("/login", (request: Request<Login>, response: Response<SafeUser | string>) => {
+    console.log("hello from the .login directory with request", request.body)
+    db.get(
+        `SELECT * FROM user WHERE user_name = ? AND password = ?`,
+        [request.body.userName, request.body.password],
+        (error, row) => {
+            if (error) {
+                response.status(400) //TODO : change code to 404 -----------------------
+                return response.send("Cannot find that username or password, please try again.")
+            } else {
+                console.log("row", row)
+
+                const safeUser: SafeUser = {
+                    id: row.id,
+                    firstName: row.first_name,
+                    lastName: row.last_name,
+                    userName: row.user_name,
+                    email: row.email,
+                }
+
+                db.run(
+                    `INSERT INTO session (user_id) VALUES (?)`,
+                    [row.id],
+                    function (error) {
+                        if (error) {
+                            console.log("there was an error inserting a user into the user table", error)
+                            response.status(500)
+                            return response.send("Cannot insert session.")
+                        }
+
+                        response.cookie("sessionId", this.lastID.toString())
+                        return response.send(safeUser)
+                    }
+                )
+            }
+        }
+    )
+
+})
+
+app.post("/logout", (request: Request, response: Response<string>) => {
+    console.log("hello from logout directory with request", request.body)
+    getUserFromSession(request, (error, user, sessionId) => { // TODO: SIMPLIFY ME ------------
+        if (error) {
+            console.log("error logout:", error)
+            response.status(403)
+            return response.send("User not logged in")
+        }
+
+        console.log("logout user")
+        db.run('DELETE from session where id = ?', [sessionId]);
+        response.clearCookie('sessionId');
+        return response.send();
+    });
+})
+
+app.get("/users", (request: Request, response: Response<SafeUser[]>) => {
+    console.log("fetching all existing users")
+    db.all(
+        `SELECT id, first_name, last_name, user_name, email FROM user`, // TODO: SIMPLIFY ME ----- //
+        (error, rows) => {
+            if (error) {
+                response.status(500)
+                return response.send([])
+            }
+            response.send(rows.map(row => {
+                return {
+                    id: row.id,
+                    firstName: row.first_name,
+                    lastName: row.last_name,
+                    userName: row.user_name,
+                    email: row.email,
+                }
+            }))
+        }
+    )
 })
 
 app.post("/posts", (request: Request<WallPostRequest>, response: Response<WallPostDto | string>) => {
 
-    getUserFromSession(request, (error, user, sessionId) => {
+    getUserFromSession(request, (error, user, sessionId) => { //TODO: simplify meeeeeeeee
         if (error) {
             console.log("error logout:", error)
             response.status(403)
@@ -136,156 +228,31 @@ app.post("/posts", (request: Request<WallPostRequest>, response: Response<WallPo
         ) 
         
     });
-// look at how posts are posted, which is an example of how the registration should work.
-//instead of posting into a wall post you need to post into the user.
-
-//make sure no ne is logged in, insert into the user and then say if it worked or didnt work. 
-   
 
 })
 
 app.get("/posts", (request: Request, response: Response<WallPostDto[]>) => {
     console.log("fetching posts")
-    // console.log("newMessageArray", newMessageArray)    
-
-    db.all(`SELECT wall_post.id, wall_post.user_id, wall_post.text, user.user_name FROM wall_post join user on user.id = wall_post.user_id`,
-    (error, rows) => {
-        if(error) { 
-            response.status(500)
-            console.log("something went wrong getting posts", error)
-            return response.send([])
-        }
-        console.log("post rows", rows);
-        response.send(rows.map(row => { 
-            return { 
-                id: row.id,
-                text: row.text,
-                userId: row.user_id,
-                userName: row.user_name
-            }
-        }))
-    })
-})
-
-
-//-----------Registration--------
-
-app.post(
-    "/registration",
-    (request: Request<UserRequestBody>, response: Response<void | string>) => {
-        console.log("hello from the registration directory with request body",
-            request.body)
-            const user: User = {
-                id: request.body.id,
-                firstName: request.body.firstName,
-                lastName: request.body.lastName,
-                userName: request.body.userName,
-                email: request.body.email,
-                password: request.body.password,
-
-            }
-                db.run(
-                    `
-                    INSERT INTO user (id, first_name, last_name, user_name, email, password, is_logged_in)
-                    VALUES (?,?,?,?,?,?,?)
-                `,
-                    [user.id, user.firstName, user.lastName, user.userName, user.email, user.password],
-                    (error) => {
-                        if (error) {
-                            console.log("there was an error inserting a user into the user table", error)
-                        }
-                    }
-                )
-                response.send()
-            })
-       
-
-
-
-app.get("/users", (request: Request, response: Response<SafeUser[]>) => {
-    console.log("fetching all existing users")
-
+    // TODO: SIMPLIFY ME -------------------------------------------------
     db.all(
-        `SELECT id, first_name, last_name, user_name, email FROM user`,
+        `SELECT wall_post.id, wall_post.user_id, wall_post.text, user.user_name FROM wall_post join user on user.id = wall_post.user_id`,
         (error, rows) => {
-            if (error) {
+            if(error) { 
                 response.status(500)
+                console.log("something went wrong getting posts", error)
                 return response.send([])
             }
-            response.send(rows.map(row => {
-                return {
+            console.log("post rows", rows);
+            response.send(rows.map(row => { 
+                return { 
                     id: row.id,
-                    firstName: row.first_name,
-                    lastName: row.last_name,
-                    userName: row.user_name,
-                    email: row.email,
+                    text: row.text,
+                    userId: row.user_id,
+                    userName: row.user_name
                 }
             }))
-        }
-    )
+        })
 })
-
-
-//-------------Login----------
-
-app.post("/login", (request: Request<Login>, response: Response<SafeUser | string>) => {
-    console.log("hello from the .login directory with request", request.body)
-    // console.log("this is the response", response)
-    db.get(
-        `SELECT * FROM user WHERE user_name = ? AND password = ?`,
-        [request.body.userName, request.body.password],
-        (error, row) => {
-            if (error) {
-                response.status(400)
-                return response.send("Cannot find that username or password, please try again.")
-            } else {
-                console.log("row", row)
-
-                const safeUser: SafeUser = {
-                    id: row.id,
-                    firstName: row.first_name,
-                    lastName: row.last_name,
-                    userName: row.user_name,
-                    email: row.email,
-                }
-
-                db.run("INSERT INTO session (user_id) VALUES (?)",
-                    [row.id],
-                    function (error) {
-                        if (error) {
-                            console.log("there was an error inserting a user into the user table", error)
-                            response.status(500)
-                            return response.send("Cannot insert session.")
-                        }
-
-                        response.cookie("sessionId", this.lastID.toString())
-                        return response.send(safeUser)
-                    }
-                )
-            }
-        }
-    )
-
-})
-
-//---------------LogOut--------
-
-app.post("/logout", (request: Request, response: Response<string>) => {
-    console.log("hello from logout directory with request", request.body)
-    getUserFromSession(request, (error, user, sessionId) => {
-        if (error) {
-            console.log("error logout:", error)
-            response.status(403)
-            return response.send("User not logged in")
-        }
-
-        console.log("logout user")
-        db.run('DELETE from session where id = ?', [sessionId]);
-        response.clearCookie('sessionId');
-        return response.send();
-    });
-})
-
 
 
 
